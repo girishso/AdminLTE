@@ -2,23 +2,21 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"os/exec"
 	"strconv"
-
-	"github.com/GeertJohan/go.rice"
+	"strings"
 )
 
-var riceBox *rice.Box
-
 func main() {
-	riceBox = rice.MustFindBox("./")
-	fs := http.FileServer(riceBox.HTTPBox())
-	http.Handle("/bootstrap/", fs)
-	http.Handle("/dist/", fs)
-	http.Handle("/plugins/", fs)
+	fs := http.FileServer(assetFS())
+	// http.Handle("/static/", fs)
+	http.Handle("/static/", http.StripPrefix("/static", fs))
+	// http.Handle("/dist/", fs)
+	// http.Handle("/plugins/", fs)
 
 	http.HandleFunc("/", serveTemplate)
 
@@ -30,23 +28,38 @@ type Stats struct {
 	Queries      int
 	AdsBlocked   int
 	NumOfDomains int
-	TodaysAds    float64
+	TodaysAds    string
 }
 
 func serveTemplate(w http.ResponseWriter, r *http.Request) {
-	tstr, _ := riceBox.String("inx.tmpl")
-	tmpl, er := template.New("inx").Parse(tstr)
+	tstr, _ := Asset("templates/inx.tmpl")
+	tmpl, er := template.New("inx").Parse(string(tstr[:]))
 	if er != nil {
 		log.Println(er)
 	}
 
 	stats := Stats{}
-	stats.AdsBlocked, _ = adsBlockedToday()
-	stats.Queries, _ = queries()
-	stats.NumOfDomains, _ = numDomains()
+	stats.AdsBlocked, er = adsBlockedToday()
+
+	if er != nil {
+		log.Println(er)
+	}
+
+	stats.Queries, er = queries()
+
+	if er != nil {
+		log.Println(er)
+	}
+
+	stats.NumOfDomains, er = numDomains()
+
+	if er != nil {
+		log.Println(er)
+	}
 
 	if stats.Queries > 0 {
-		stats.TodaysAds = float64(stats.AdsBlocked / stats.Queries * 100)
+		x := float64(stats.AdsBlocked) / float64(stats.Queries) * 100
+		stats.TodaysAds = fmt.Sprintf("%0.2f", x)
 	}
 
 	err := tmpl.Execute(w, stats)
@@ -60,29 +73,37 @@ func adsBlockedToday() (int, error) {
 	cat := exec.Command("cat", "/var/log/pihole.log")
 
 	// awk  '/\/etc\/pihole\/gravity.list/ {print $6}'
-	awk := exec.Command("awk", `'/\/etc\/pihole\/gravity.list/ {print $6}'`)
+	awk := exec.Command("awk", `/\/etc\/pihole\/gravity.list/ {print $6}`)
 
 	wc := exec.Command("wc", "-l")
 
 	// Run the pipeline
-	output, _, err := Pipeline(cat, awk, wc)
+	output, stderr, err := Pipeline(cat, awk, wc)
 
-	ret, _ := strconv.Atoi(string(output[:]))
-	return ret, err
+	if len(stderr) > 0 {
+		log.Panicln(stderr)
+		return 0, err
+	}
 
+	return strconv.Atoi(strings.TrimSpace(string(output[:])))
 }
 
 func numDomains() (int, error) {
 	// wc -l /etc/pihole/gravity.list | awk '{print $1}'
 
-	wc := exec.Command("wc", "-l")
+	wc := exec.Command("wc", "-l", "/etc/pihole/gravity.list")
 
-	awk := exec.Command("awk", `'{print $1}'`)
+	awk := exec.Command("awk", `{print $1}`)
 
 	// Run the pipeline
-	output, _, err := Pipeline(wc, awk)
-	ret, _ := strconv.Atoi(string(output[:]))
-	return ret, err
+	output, stderr, err := Pipeline(wc, awk)
+
+	if len(stderr) > 0 {
+		log.Panicln(stderr)
+		return 0, err
+	}
+
+	return strconv.Atoi(strings.TrimSpace(string(output[:])))
 }
 
 func queries() (int, error) {
@@ -92,14 +113,19 @@ func queries() (int, error) {
 	cat := exec.Command("cat", "/var/log/pihole.log")
 
 	// awk '/query/ {print $6}'
-	awk := exec.Command("awk", `'/query/ {print $6}'`)
+	awk := exec.Command("awk", `/query/ {print $6}`)
 
 	wc := exec.Command("wc", "-l")
 
 	// Run the pipeline
-	output, _, err := Pipeline(cat, awk, wc)
-	ret, _ := strconv.Atoi(string(output[:]))
-	return ret, err
+	output, stderr, err := Pipeline(cat, awk, wc)
+
+	if len(stderr) > 0 {
+		log.Panicln(stderr)
+		return 0, err
+	}
+
+	return strconv.Atoi(strings.TrimSpace(string(output[:])))
 }
 
 // Pipeline strings together the given exec.Cmd commands in a similar fashion
