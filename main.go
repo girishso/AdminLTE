@@ -12,10 +12,21 @@ import (
 )
 
 func main() {
+	onepxhtml := []byte(`
+<html>
+<body>
+	<img src="data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=" />
+</body>
+</html>
+`)
+
 	fs := http.FileServer(assetFS())
 
 	http.Handle("/static/", http.StripPrefix("/static", fs))
 	http.HandleFunc("/admin", dashboard)
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write(onepxhtml)
+	})
 
 	log.Println("Listening...")
 	http.ListenAndServe(":3000", nil)
