@@ -13,12 +13,9 @@ import (
 
 func main() {
 	fs := http.FileServer(assetFS())
-	// http.Handle("/static/", fs)
-	http.Handle("/static/", http.StripPrefix("/static", fs))
-	// http.Handle("/dist/", fs)
-	// http.Handle("/plugins/", fs)
 
-	http.HandleFunc("/", serveTemplate)
+	http.Handle("/static/", http.StripPrefix("/static", fs))
+	http.HandleFunc("/admin", dashboard)
 
 	log.Println("Listening...")
 	http.ListenAndServe(":3000", nil)
@@ -31,8 +28,8 @@ type Stats struct {
 	TodaysAds    string
 }
 
-func serveTemplate(w http.ResponseWriter, r *http.Request) {
-	tstr, _ := Asset("templates/inx.tmpl")
+func dashboard(w http.ResponseWriter, r *http.Request) {
+	tstr, _ := Asset("templates/index.tmpl")
 	tmpl, er := template.New("inx").Parse(string(tstr[:]))
 	if er != nil {
 		log.Println(er)
