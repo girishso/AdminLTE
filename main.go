@@ -29,7 +29,7 @@ func main() {
 	})
 
 	log.Println("Listening...")
-	http.ListenAndServe(":3000", nil)
+	http.ListenAndServe(":80", nil)
 }
 
 type Stats struct {
@@ -89,7 +89,7 @@ func adsBlockedToday() (int, error) {
 	output, stderr, err := Pipeline(cat, awk, wc)
 
 	if len(stderr) > 0 {
-		log.Panicln(stderr)
+		log.Panicln(string(stderr[:]))
 		return 0, err
 	}
 
@@ -107,7 +107,7 @@ func numDomains() (int, error) {
 	output, stderr, err := Pipeline(wc, awk)
 
 	if len(stderr) > 0 {
-		log.Panicln(stderr)
+		log.Panicln(string(stderr[:]))
 		return 0, err
 	}
 
@@ -129,7 +129,7 @@ func queries() (int, error) {
 	output, stderr, err := Pipeline(cat, awk, wc)
 
 	if len(stderr) > 0 {
-		log.Panicln(stderr)
+		log.Panicln(string(stderr[:]))
 		return 0, err
 	}
 
