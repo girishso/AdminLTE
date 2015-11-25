@@ -11,8 +11,6 @@ import (
 	"strings"
 )
 
-var tmpl *template.Template
-
 func main() {
 	onepxhtml := []byte(`
 <html>
@@ -21,18 +19,15 @@ func main() {
 </body>
 </html>
 `)
-	var er error
-	tstr, _ := Asset("templates/index.tmpl")
-	tmpl, er = template.New("inx").Parse(string(tstr[:]))
-	if er != nil {
-		log.Println(er)
-	}
 
 	fs := http.FileServer(assetFS())
 
 	http.Handle("/static/", http.StripPrefix("/static", fs))
-	http.HandleFunc("/admin", dashboard)
-	http.HandleFunc("/admin/", dashboard)
+
+	dashboardHandler := dashboard()
+	http.HandleFunc("/admin", dashboardHandler)
+	http.HandleFunc("/admin/", dashboardHandler)
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write(onepxhtml)
 	})
@@ -48,37 +43,43 @@ type Stats struct {
 	TodaysAds    string
 }
 
-func dashboard(w http.ResponseWriter, r *http.Request) {
-	var er error
-
-	stats := Stats{}
-	stats.AdsBlocked, er = adsBlockedToday()
-
+func dashboard() func(w http.ResponseWriter, r *http.Request) {
+	tstr, _ := Asset("templates/index.tmpl")
+	tmpl, er := template.New("inx").Parse(string(tstr[:]))
 	if er != nil {
 		log.Println(er)
 	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		stats := Stats{}
+		stats.AdsBlocked, er = adsBlockedToday()
 
-	stats.Queries, er = queries()
+		if er != nil {
+			log.Println(er)
+		}
 
-	if er != nil {
-		log.Println(er)
+		stats.Queries, er = queries()
+
+		if er != nil {
+			log.Println(er)
+		}
+
+		stats.NumOfDomains, er = numDomains()
+
+		if er != nil {
+			log.Println(er)
+		}
+
+		if stats.Queries > 0 {
+			x := float64(stats.AdsBlocked) / float64(stats.Queries) * 100
+			stats.TodaysAds = fmt.Sprintf("%0.2f", x)
+		}
+
+		err := tmpl.Execute(w, stats)
+		if err != nil {
+			log.Println(err)
+		}
 	}
 
-	stats.NumOfDomains, er = numDomains()
-
-	if er != nil {
-		log.Println(er)
-	}
-
-	if stats.Queries > 0 {
-		x := float64(stats.AdsBlocked) / float64(stats.Queries) * 100
-		stats.TodaysAds = fmt.Sprintf("%0.2f", x)
-	}
-
-	err := tmpl.Execute(w, stats)
-	if err != nil {
-		log.Println(err)
-	}
 }
 
 func adsBlockedToday() (int, error) {
