@@ -11,6 +11,8 @@ import (
 	"strings"
 )
 
+var tmpl *template.Template
+
 func main() {
 	onepxhtml := []byte(`
 <html>
@@ -19,17 +21,24 @@ func main() {
 </body>
 </html>
 `)
+	var er error
+	tstr, _ := Asset("templates/index.tmpl")
+	tmpl, er = template.New("inx").Parse(string(tstr[:]))
+	if er != nil {
+		log.Println(er)
+	}
 
 	fs := http.FileServer(assetFS())
 
 	http.Handle("/static/", http.StripPrefix("/static", fs))
 	http.HandleFunc("/admin", dashboard)
+	http.HandleFunc("/admin/", dashboard)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write(onepxhtml)
 	})
 
 	log.Println("Listening...")
-	http.ListenAndServe(":80", nil)
+	log.Fatal(http.ListenAndServe(":80", nil))
 }
 
 type Stats struct {
@@ -40,11 +49,7 @@ type Stats struct {
 }
 
 func dashboard(w http.ResponseWriter, r *http.Request) {
-	tstr, _ := Asset("templates/index.tmpl")
-	tmpl, er := template.New("inx").Parse(string(tstr[:]))
-	if er != nil {
-		log.Println(er)
-	}
+	var er error
 
 	stats := Stats{}
 	stats.AdsBlocked, er = adsBlockedToday()
