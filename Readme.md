@@ -2,7 +2,7 @@
 
 Web interface for the ad-blocking Pi-hole: **a black hole for Internet advertisements**.
 
-## Developed in Golang, features built-in web server and single executable with all the assets included. No lighttpd or php-fpm required!
+### Developed in Golang, features built-in web server and single executable with all the assets included. No lighttpd or php-fpm required!
 
 From this interface, you will be able to see stats on how well your Pi-hole is performing.  You will also be able to update the lists used to block ads.
 
